@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <link rel="stylesheet" type="text/css" href="/theme/css/elegant.prod.9e9d5ce754.css" media="screen">
+        <link rel="stylesheet" type="text/css" href="/theme/css/custom.css" media="screen">
+
+        <link rel="dns-prefetch" href="//fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin>
+
+        <meta name="author" content="yihong" />
+
+        <meta property="og:type" content="article" />
+        <meta name="twitter:card" content="summary">
+
+<meta name="keywords" content=", Message-bus, " />
+
+<meta property="og:title" content="Kafka "/>
+<meta property="og:url" content="/kafka.html" />
+<meta property="og:description" content="Table of Contents How Kafka works To store messages reliably Number of Brokers and Partitions number of partitions Log retention Time-based retention Size-based retention Closing log segment log.segment.bytes log.roll.ms Retention Policy Cleanup Policy OS Tuning Garbage Collector Commits and Offsets Using interceptors Creating topic programmatically or …" />
+<meta property="og:site_name" content="yihong&#39;s blog" />
+<meta property="og:article:author" content="yihong" />
+<meta property="og:article:published_time" content="2024-04-24T10:20:00+08:00" />
+<meta name="twitter:title" content="Kafka ">
+<meta name="twitter:description" content="Table of Contents How Kafka works To store messages reliably Number of Brokers and Partitions number of partitions Log retention Time-based retention Size-based retention Closing log segment log.segment.bytes log.roll.ms Retention Policy Cleanup Policy OS Tuning Garbage Collector Commits and Offsets Using interceptors Creating topic programmatically or …">
+
+        <title>Kafka  · yihong&#39;s blog
+</title>
+
+
+
+    </head>
+    <body>
+        <div id="content">
+            <div class="navbar navbar-static-top">
+                <div class="navbar-inner">
+                    <div class="container-fluid">
+                        <a class="btn btn-navbar" data-toggle="collapse" data-target=".nav-collapse">
+                            <span class="icon-bar"></span>
+                            <span class="icon-bar"></span>
+                            <span class="icon-bar"></span>
+                        </a>
+                        <a class="brand" href="/"><span class=site-name>yihong's blog</span></a>
+                        <div class="nav-collapse collapse">
+                            <ul class="nav pull-right top-menu">
+                                <li >
+                                    <a href=
+                                       "/"
+                                    >Home</a>
+                                </li>
+                                <li ><a href="/categories.html">Categories</a></li>
+                                <li ><a href="/tags.html">Tags</a></li>
+                                <li ><a href="/archives.html">Archives</a></li>
+                                <li><form class="navbar-search" action="/search.html" onsubmit="return validateForm(this.elements['q'].value);"> <input type="text" class="search-query" placeholder="Search" name="q" id="tipue_search_input"></form></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="container-fluid">
+                <div class="row-fluid">
+                    <div class="span1"></div>
+                    <div class="span10">
+<article itemscope>
+<div class="row-fluid">
+    <header class="page-header span10 offset2">
+        <h1>
+            <a href="/kafka.html">
+                Kafka
+            </a>
+        </h1>
+    </header>
+</div>
+
+<div class="row-fluid">
+        <div class="span8 offset2 article-content">
+            
+            <div class="toc"><span class="toctitle">Table of Contents</span><ul>
+<li><a href="#how-kafka-works">How Kafka works</a></li>
+<li><a href="#to-store-messages-reliably">To store messages reliably</a></li>
+<li><a href="#number-of-brokers-and-partitions">Number of Brokers and Partitions</a><ul>
+<li><a href="#number-of-partitions">number of partitions</a></li>
+</ul>
+</li>
+<li><a href="#log-retention">Log retention</a><ul>
+<li><a href="#time-based-retention">Time-based retention</a></li>
+<li><a href="#size-based-retention">Size-based retention</a></li>
+<li><a href="#closing-log-segment">Closing log segment</a><ul>
+<li><a href="#logsegmentbytes">log.segment.bytes</a></li>
+<li><a href="#logrollms">log.roll.ms</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a href="#retention-policy-cleanup-policy">Retention Policy Cleanup Policy</a></li>
+<li><a href="#os-tuning">OS Tuning</a></li>
+<li><a href="#garbage-collector">Garbage Collector</a></li>
+<li><a href="#commits-and-offsets">Commits and Offsets</a></li>
+<li><a href="#using-interceptors">Using interceptors</a></li>
+<li><a href="#creating-topic-programmatically-or-via-an-admin-client">Creating topic programmatically or via an admin client</a></li>
+<li><a href="#produce-message">Produce Message</a><ul>
+<li><a href="#importance-of-keys">Importance of keys</a></li>
+</ul>
+</li>
+<li><a href="#schema-of-messages">Schema of Messages</a></li>
+<li><a href="#authentication-and-encryption">Authentication and Encryption</a></li>
+<li><a href="#monitoring-kafka-logs">Monitoring Kafka Logs</a></li>
+<li><a href="#faqs">FAQs</a><ul>
+<li><a href="#is-the-leader-part-of-isr-insync-replicas-list">Is the leader part of ISR (insync replicas) list</a></li>
+<li><a href="#do-all-brokers-in-kafka-always-have-one-replica-of-a-partition-of-a-topic">Do all brokers in Kafka always have one replica of a partition of a topic</a></li>
+</ul>
+</li>
+<li><a href="#setup-kafka-and-grafana-dashboards-for-kafka-in-kubernetes">Setup Kafka and Grafana dashboards for Kafka in Kubernetes</a><ul>
+<li><a href="#troubleshooting-kafka-consumer-lag-exporter-dashboard">Troubleshooting Kafka Consumer Lag Exporter Dashboard</a></li>
+</ul>
+</li>
+<li><a href="#chatgpt-35-on-why-it-is-difficult-to-use-kafka">ChatGpt 3.5 on why it is difficult to use Kafka</a></li>
+</ul>
+</div>
+<h1 id="how-kafka-works">How Kafka works</h1>
+<p>Kafka does not have the concept of master and slave</p>
+<p>Main concept of Kafka is that a broker is a leader of a partition</p>
+<p>A topic in kafka is divided into a number of partitions</p>
+<p>The term <strong>stream</strong> means streaming data from producer to consumer in a topic, regardless of number of partitions</p>
+<p><strong>Imagine setting up 3 brokers (nodes) of Kafka, creating 1 topic with 1 partition</strong></p>
+<p>One broker is the leader of the partition (arranged by Kafka), and the other 2 brokers are followers of the partition</p>
+<ol>
+<li>
+<p>Partition 1</p>
+<p>a) Leader: Broker A</p>
+<p>b) Followers: Broker B, Broker C</p>
+</li>
+</ol>
+<p>Leader of the partition, that particular broker, will be the first to write messages, then followers will sync with the leader</p>
+<p>Both leaders and followers are considered as replicas</p>
+<p><strong>Imagine setting up 3 brokers (nodes) of Kafka, creating 1 topic with 3 partitions</strong></p>
+<p>3 partitions, each of them has 1 leader (chosen from one of the three brokers) and 2 followers (the other two brokers)</p>
+<ol>
+<li>
+<p>Partition 1</p>
+<p>a) Leader: Broker A</p>
+<p>b) Followers: Broker B, Broker C</p>
+</li>
+<li>
+<p>Partition 2</p>
+<p>a) Leader: Broker B</p>
+<p>b) Followers: Broker A, Broker C</p>
+</li>
+<li>
+<p>Partition 3</p>
+<p>a) Leader: Broker C</p>
+<p>b) Followers: Broker A, Broker B</p>
+</li>
+</ol>
+<p>A producer/consumer can produce/consume messages to all these brokers simulaneously. High throughput is achieved because the leaders of partitions spread across all the brokers</p>
+<p>Above shows a general idea and it assumes a simple scenario, we can modify the settings in Kafka brokers or clients to achieve different outcomes</p>
+<p>A better explanation from the link below:</p>
+<ol>
+<li><a href="https://stackoverflow.com/questions/60835817/what-is-a-partition-leader-in-apache-kafka">What is a partition leader in Apache Kafka?</a></li>
+</ol>
+<blockquote>
+<p>Each partition has one server which acts as the "leader" and zero or more servers which act as "followers". The leader handles all read and write requests for the partition while the followers passively replicate the leader. If the leader fails, one of the followers will automatically become the new leader. Each server acts as a leader for some of its partitions and a follower for others so load is well balanced within the cluster.</p>
+</blockquote>
+<h1 id="to-store-messages-reliably">To store messages reliably</h1>
+<p>With a Kafka cluster of at least 3 brokers, we can define that reliability is achieved when we can tolerate one unhealthy broker</p>
+<p>The settings of the brokers and clients to achieve better reliability are as following, note that this is a <strong>non-exhaustive list, it is not conclusive and it might not be correct,</strong></p>
+<p>For the broker level:</p>
+<ol>
+<li><code>default.replication.factor = 3</code></li>
+</ol>
+<p>For the broker topic level:</p>
+<ol>
+<li>
+<p><code>min.insync.replicas = 2</code></p>
+</li>
+<li>
+<p><code>replication.factor = 3</code></p>
+<p>a)  the pros/cons of setting higher replication factor is discussed at Chapter 7 of the book Kafka The Definitive Guide 2nd Edition</p>
+</li>
+<li>
+<p><code>unclean.leader.election.enable = false (default is false)</code></p>
+<p>a)  to prevent any out-of-sync replica becoming the leader and causing data loss</p>
+</li>
+</ol>
+<p>For the producers:</p>
+<ol>
+<li>
+<p><code>acks=all</code></p>
+</li>
+<li>
+<p><code>retries=MAX_INT (default unsure)</code></p>
+<p>a)  effectively infinite</p>
+</li>
+<li>
+<p><code>delivery.timeout.ms</code></p>
+<p>a)  configure maximum amount of time we can tolerate until giving up on sending a message</p>
+</li>
+<li>
+<p><code>enable.idempotence = true</code></p>
+<p>a)  brokers will use the additional information sent by producer to skip duplicate messages caused by retries, for more, read Chapter 8 of the book Kafka The Definitive Guide 2nd Edition</p>
+<p>b)  This can also guarantee message ordering with up to 5 in-flight requests, to confirm, read Chapter 3 of the book Kafka The Definitive Guide 2nd Edition</p>
+</li>
+<li>
+<p><code>max.inflight.requests = 5 or lower (default is 5)</code></p>
+</li>
+<li>
+<p><code>max.inflight.requests.per.connections = 5 or lower (default is 5)</code></p>
+<p>a)  at least 2 to maximize throughput (performance)</p>
+</li>
+</ol>
+<p>For the consumers:</p>
+<ol>
+<li>
+<p><code>enable.auto.commit = false (default is true)</code></p>
+<p>a)  to control when offsets are commited at client side, this is necessary to minimize duplicates and avoid missing data</p>
+</li>
+</ol>
+<h1 id="number-of-brokers-and-partitions">Number of Brokers and Partitions</h1>
+<p>number of brokers can be determined by the following factors</p>
+<p><strong>Disk capacity</strong></p>
+<ol>
+<li>
+<p>how much is required by for retaining messages and how much storage is available on a single broker</p>
+</li>
+<li>
+<p>if need to retain 10TB, a single broker can store 2TB, we need 5 brokers</p>
+<p>a) increasing replication factor (RF) will increase storage requirement by at least 100%</p>
+<p>b) with RF = 2, we need 10 brokers then</p>
+</li>
+</ol>
+<p><strong>Replica capacity per broker</strong></p>
+<p><strong>CPU capacity</strong></p>
+<ol>
+<li>
+<p>CPU is usually not a major bottleneck, but it can be when there is excessive amount of client connections and requests on a broker</p>
+<p>a) monitor overall CPU usage based on number of unique clients and consumer groups, increase cluster size to meet those needs can improve performance</p>
+</li>
+</ol>
+<p><strong>Network capacity</strong></p>
+<ol>
+<li>
+<p>capacity of network interfaces,  whether they can handle client traffic if there are many consumers</p>
+</li>
+<li>
+<p>if the traffic is not consistent over the retention period (burst during peak hours)</p>
+<p>a) if capacity is utilized fully during peak on a single broker, the consumers might not be able to consume at high throughput, more than 1 broker is needed to maintain high throughput for many consumers</p>
+</li>
+<li>
+<p>if RF&gt;1, need to consider additional consumer of the data</p>
+</li>
+</ol>
+<p><strong>how cluster handle requests</strong></p>
+<ol>
+<li>
+<p>10 brokers, over 1m replicas (500k partitions with RF=2), each broker has 100k replicas, evenly balanced scenario</p>
+<p>a) bottlenecks in produce, consume and controller queues</p>
+</li>
+<li>
+<p>in the past, no more than 4k replicas per broker and no more than 200k replicas per cluster</p>
+</li>
+<li>
+<p>now, well-configured kafka, no more than 14k replicas per broker and 1m replicas per cluster</p>
+</li>
+</ol>
+<p><strong>Also, considering adding more brokers to handle IO and memory bottlenecks to improve performance</strong></p>
+<h2 id="number-of-partitions">number of partitions</h2>
+<p>Note that number of partitions can only be increased, never decreased. Manually create the topic with fewer partition carefully if needed</p>
+<p>Parition count of a topic can be equal to, or multiple of the number of brokers (evenly distributing message load), you can also balance message load by having multiple topics</p>
+<p>Factors affect number of partitions including:</p>
+<ol>
+<li>
+<p>throughput for a single topic</p>
+<p>a) expect to write 100KBps or 1GBps?</p>
+</li>
+<li>
+<p>max throughput consuming from a single partition</p>
+<p>a) this is also limited by IO of the destination, e.g. database</p>
+</li>
+<li>
+<p>max throughput for a producer for a single partition</p>
+<p>a) producers are typically faster than consumers, can skip this</p>
+</li>
+<li>
+<p>sending messages based on keys, adding partitions later can be difficult</p>
+<p>a) calculate throughput based on expected future usage, not current usage</p>
+</li>
+<li>
+<p>check available diskspace and network bandwidth per broker for the expected number of partitions</p>
+</li>
+<li>
+<p>don't overestimate number of partitions, they use memory and other resources in the brokers</p>
+<p>a) they will increase the time for metadata updates and leadership transfers</p>
+</li>
+<li>
+<p>mirroring data?</p>
+<p>a) consider throughput of the mirroring config, larger partitions can be a bottleneck</p>
+</li>
+<li>
+<p>cloud services?</p>
+<p>a) IOPS limits in the VM, having too many partitions increase the amount of IOPS due to parallelism</p>
+</li>
+</ol>
+<p>You want too many partitions, but not too many</p>
+<p>Diving the expected throughput by the producers and by the consumers to get the number of partitions</p>
+<p>Example, RW 1GBps from a topic, each consumer can process 50MBps, then we need 20 partitions</p>
+<p>If you don't have detailed information, always start small by limiting the per day retention to 6GB per partition</p>
+<h1 id="log-retention">Log retention</h1>
+<p>Log retention is configured at broker topic level</p>
+<p>Messages will be deleted if either the time limit or size limit are reached. It's recommended to use only one type of retention to prevent unwanted data-loss. Personally I prefer size-based retention</p>
+<h2 id="time-based-retention">Time-based retention</h2>
+<p>Time-based retention's parameters are <code>log.retention.hours</code>, <code>log.retention.minutes</code>, <code>log.retention.ms</code>, smaller size unit will take precedence</p>
+<p>This time-based retention for messages will only start to count towards the time limit only after the messages are considered to be deleted or after the log segment has been closed, not after the messages are produced</p>
+<p>Note that retention by time is affected by <code>mtime</code>, which will be not accurate when partitions are moved using admin tool</p>
+<h2 id="size-based-retention">Size-based retention</h2>
+<p>Size-based retention's parameter is <code>log.retention.bytes</code></p>
+<p><code>log.retention.bytes</code> is applied per partition</p>
+<p>A topic with 8 partitions and log.retention.bytes is set to 1GB, the topic size is 8GB (8*1GB)</p>
+<p>Note that retention is for individual partition, not the topic, so increasing the number of partitions will increase the disk size usage if sized-based retention is used</p>
+<p>Setting <code>log.retention.bytes</code> to -1 allows for infinite retentions</p>
+<h2 id="closing-log-segment">Closing log segment</h2>
+<h3 id="logsegmentbytes">log.segment.bytes</h3>
+<p>log segment is closed (and be considered to be deleted) when <code>log.segment.bytes</code> is reached, default to 1GB.</p>
+<p>Smaller <code>log.segment.bytes</code> means that the file will be closed and new file will be opened more often, this will reduce overall efficiency of disk writes</p>
+<p>The time to that log segment is deleted is calculated as (<code>log.segment.bytes</code> limit reached + <code>log.retention.ms</code>)</p>
+<p>If it takes 10 days to reach <code>log.segment.bytes</code> of 1GB (100MB per day), with 7 days of <code>log.retention.ms</code>, total time to delete the log segment would be 17 days</p>
+<p>Note that log segment size affects the retrieval of offset by timestamp. If the consumer want to get an offset at a specific timestamp, Kafka will look at the <em>creation time</em> and <em>last modified time</em> of the log segments to determine the correct file to retrieve the offset (the offset at the beginning of the log segment, which is also the filename, will be sent in the response to the consumer)</p>
+<h3 id="logrollms">log.roll.ms</h3>
+<p><code>log.roll.ms</code> controls when a log segment will be closed</p>
+<p>When the log.roll.ms limit is reached, the log segment will be closed and a new log segment will be opened</p>
+<p><code>log.roll.ms</code> and <code>l</code>og.segment.bytes` can be used together as time limit and size limit respectively, whichever comes first Kafka will close the log segment</p>
+<p>By default there is no setting for <code>log.roll.ms</code></p>
+<p>Disk performance will be impacted if there are multiple log segments closed simultaneously, it can happen when there are many partitions that never reach limit of <code>log.segment.bytes</code>. Kafka always start to countdown when the brokers start, and it closes these low-volume partitions particularly at the same time as <code>log.roll.ms</code> limit reached. Do not confuse this with the countdown of other bigger volume partitions which would be closed when their <code>log.segment.bytes</code> limits are reached</p>
+<h1 id="retention-policy-cleanup-policy">Retention Policy Cleanup Policy</h1>
+<p>Use "delete" policy, it will respect the size/time limit, while "compact" policy needs key to be set in messages</p>
+<p>The “delete” policy (which is the default) will discard old segments when their retention time or size limit has been reached.</p>
+<p>the “compact” policy will enable log compaction, which retains the latest value for each key.</p>
+<p>It is also possible to specify both policies in a comma-separated list (e.g. “delete,compact”).</p>
+<ol>
+<li>
+<p><a href="https://www.google.com/search?q=compact+or+delete+topic+kafka">compact or delete topic kafka</a></p>
+<p>a) <a href="https://docs.confluent.io/platform/current/installation/configuration/topic-configs.html">Kafka Topic Configuration Reference for Confluent Platform</a></p>
+<p>b) <a href="https://forum.confluent.io/t/cleanup-policy-of-compact-and-delete/868">Cleanup Policy of compact AND delete</a></p>
+</li>
+<li>
+<p><a href="https://www.google.com/search?q=Compacted+topic+cannot+accept+message+without+key+in+topic+partition">Compacted topic cannot accept message without key in topic partition</a></p>
+<p>a) <a href="https://groups.google.com/g/debezium/c/P_cUGYqSpX0">Compacted topic cannot accept message without key in topic partition</a></p>
+<p>b) <a href="https://lists.apache.org/thread/0nwtcr8kx1hlkn2wokv3tvn2rrp9y97q">Re: Compacted topic cannot accept message without key</a></p>
+</li>
+<li>
+<p><a href="https://stackoverflow.com/questions/63009907/kafka-uncompacted-topics-vs-compacted-topics">Kafka - uncompacted topics Vs compacted topics</a></p>
+</li>
+<li>
+<p><a href="https://www.google.com/search?q=broker+failed+to+validate+record">broker failed to validate record</a></p>
+<p>a) <a href="https://stackoverflow.com/questions/72797644/kafka-broker-failed-to-validate-record-after-increasing-partition">Kafka: "Broker failed to validate record" after increasing partition</a></p>
+<p>b) <a href="https://stackoverflow.com/questions/77256115/kafka-schema-registry-broker-broker-failed-to-validate-record">Kafka schema registry - Broker: Broker failed to validate record</a></p>
+<p>c) <a href="https://forum.confluent.io/t/cleanup-policy-of-compact-and-delete/868">Cleanup Policy of compact AND delete</a></p>
+<p>d) <a href="https://docs.confluent.io/platform/current/installation/configuration/topic-configs.html">Kafka Topic Configuration Reference for Confluent Platform</a></p>
+</li>
+</ol>
+<p>further in the book KTDG2E on page 122, 128, 150, 156, 159</p>
+<h1 id="os-tuning">OS Tuning</h1>
+<p>To improve performance, on virtual memory, networking subsystems and disk mount point used for storing log segments, they are typically configured in <code>/etc/sysctl.conf</code></p>
+<p><strong>Virtual Memory</strong></p>
+<p>Disable Swap to disk, it will impact the performance of Kafka, and system page cache is not enough for Kafka to use if Virtual Memory system is swapping to disk</p>
+<p>If swap is enable, set <code>vm.swappiness</code> to 1, this will only use swap when there is an out-of-memory condition</p>
+<p>Kafka relies on disk I/O performance, fast disk like SSD or RAID with significant NVRAM for caching, following is the number of dirty pages that are allowed before being flushed to disk</p>
+<p>set <code>vm.dirty_background_ratio</code> to less than the default 10, it is a percentage of the total amount of system memory, set it to 5 is appropriate in many situation, it should not be set to zero to prevent kernel continually flushing pages (buffer disk writes is needed against temporary spikes in the underlying device performance)</p>
+<p><code>vm.dirty_ratio</code> is the dirty pages allowed before kernel forces <em>synchronous</em> flush-to-disk operation. Set it to above the default 20, like 60 to 80, a bit risky in regard to unflushed pages and the long I/O pause if <em>synchronous</em> flushed are forced, in this case, replication in Kafka must be used to guard against system failures</p>
+<p>Monitor the dirty pages over time while Kafka is running under load, number of dirty pages can be viewed in <code>/proc/vmstat</code></p>
+<p>run this command <code>cat /proc/vmstat \| egrep "dirty\|writeback</code></p>
+<p>output:</p>
+<div class="highlight"><pre><span></span><code>nr_dirty 21845
+
+nr_writeback 0
+
+nr_writeback_temp 0
+
+nr_dirty_threshold 32715981
+
+nr_dirty_background_threshold 2726331
+</code></pre></div>
+
+<p>file descriptors are used for log segments and open connections</p>
+<p>set <code>vm.max_map_count</code> to a large number, 400000 -- 600000. To calculate, <code>(number of partitions * (partition size/segment size)) +
+number of connections</code> the brokers makes</p>
+<p>set <code>vm.overcommit_memory</code> to 0. Kernel will grab too much memory and Kafka don't have enough memory to operate if it is set to a value other than 0. Common for high ingestion rates applications.</p>
+<p><strong>Disk</strong></p>
+<p>XFS outperforms EXT4 with minimal tuning required</p>
+<p>EXT4 can perform well with tuning parameters that are considered less safe, including setting <em>longer commit interval</em> than the default of 5 to force less frequent writes, it also has <em>delayed allocation of blocks</em> which has a greater chance of data loss and file system corruption if system fails</p>
+<p>XFS delayed allocation algorithm is safer than EXT4. XFS is more efficient when batching disk writes. Overall, XFS has better I/O throughput</p>
+<p>set <code>noatime</code> mount option for the mount point, <code>atime</code> is updated everytime when a file is read, this generates lots of disk writes. <code>noatime</code> will not affect <code>ctime</code> and <code>mtime</code> attributes</p>
+<p>set <code>largeio</code> mount option when there are larger disk writes in Kafka</p>
+<p><strong>Networking</strong></p>
+<p>For large transfers, set <code>net.core.wmem_default</code> and <code>net.core.rmem_default</code> to 131072 (128 KiB), these are send and receive buffer default size per socket.</p>
+<p>For large transfers, <code>set net.core.wmem_max</code> and <code>net.core.rmem_max</code> to 2097152 (2 MiB), these are send and receive buffer maximum sizes</p>
+<p><code>net.ipv4.tcp_wmem</code> and <code>net.ipv4.tcp_rmem</code> are parameters for TCP sockets, set it with 3 space-separated integer, <code>min, default, max</code> size. Max size cannot be larger than the <code>net.core.wmem_max</code> and <code>net.core.rmem_max</code> (these parameters are for all sockets). Example, can set it as <code>"4096 6553 2048000"</code> (4 KiB min, 64 KiB default, 2 MiB max). Can increase max size to allow greater buffering depending on the workload</p>
+<p>set <code>net.ipv4.tcp_window_scaling</code> to 1, this is TCP window scaling. Clients can transfer data more efficiently and broker can buffer that data</p>
+<p>set <code>net.ipv4.tcp_max_syn_backlog</code> above the default of 1024, this can increase the number of simultaneous connections to be accepted</p>
+<p>set <code>net.core.netdev_max_backlog</code> to greater than the default of 1000 can assist with bursts of network traffic, allowing more packets to be queued for kernel processing</p>
+<h1 id="garbage-collector">Garbage Collector</h1>
+<p>To-do</p>
+<h1 id="commits-and-offsets">Commits and Offsets</h1>
+<p>To-do, Chapter 4 of Kafka The Definitive Guide 2nd Edition</p>
+<h1 id="using-interceptors">Using interceptors</h1>
+<p>The interceptor that we can use is producer record and acknowledgement</p>
+<p>Why we want to use the interceptor? To record these two metrics</p>
+<ul>
+<li>
+<p>when producer send the message to Kafka before the serialization happens</p>
+</li>
+<li>
+<p>when Kafka responds with an acknowledgement to the producer, this does not allow modification</p>
+</li>
+</ul>
+<p>In Java, the interceptor can be applied without changing client code, with classpath, jar file and config. I am not sure about other languages. For more, read Chapter 3 of the book Kafka The Definitive Guide 2nd Edition</p>
+<h1 id="creating-topic-programmatically-or-via-an-admin-client">Creating topic programmatically or via an admin client</h1>
+<p>It is better to create topic via an admin client on the side, instead of via the code in producer/consumer client applications</p>
+<p>You can read this in the book Kafka The Definitive Guide 2nd Edition Chapter 12</p>
+<p><code>auto.create.topics.enable</code> is set to <em>false</em> by default, it is not recommended to set it to <em>true</em>, because explosion of topics can happen. And topic created automatically will always have the same defaults, for example, <code>replication.factor</code> needs to be at least 3 to ensure durability but the <code>default.replication.factor</code> can be other values and that could be overlooked.</p>
+<p>Links:</p>
+<ol>
+<li>
+<p><a href="https://www.google.com/search?q=kafka+topic+create+before+sending%3F">search - kafka topic create before sending?</a></p>
+<p>a)  <a href="https://stackoverflow.com/questions/43563977/can-a-kafka-producer-create-topics-and-partitions">Can a Kafka producer create topics and partitions?</a></p>
+</li>
+</ol>
+<h1 id="produce-message">Produce Message</h1>
+<p>key is optional when producing messages</p>
+<p>How to set the key? Keys can be customers if the topic is shopping cart messages</p>
+<p>When no key is specified (null), and the default partitioner is used, the record will be sent to one of the partitions at random</p>
+<p>stick round-robin algorithm in the default partitioner will fill a batch of messages to send to a single partition and repeat for the next partition</p>
+<p>resulting in fewer requests to send the same number of messages, lower latency and lower CPU usage on the broker</p>
+<h2 id="importance-of-keys">Importance of keys</h2>
+<p>key is needed for order guarantee across partitions</p>
+<p>if no key is set, messages will go to any partition chosen by the default partitioner, order of messages will not be guaranteed across partitions</p>
+<p><code>idempotence = true</code> only guarantee order within the partitions themselves, not across partitions</p>
+<ol>
+<li>
+<p><a href="https://stackoverflow.com/questions/29511521/is-key-required-as-part-of-sending-messages-to-kafka">Is key required as part of sending messages to Kafka?</a></p>
+</li>
+<li>
+<p><a href="https://www.google.com/search?q=idempotent+all+partitions+or+need+to+use+key+kafka">idempotent all partitions or need to use key kafka</a></p>
+<p>a) <a href="https://stackoverflow.com/questions/74092535/what-is-use-of-the-idempotent-producer-in-kafka">What is use of the idempotent producer in kafka?</a></p>
+</li>
+<li>
+<p><a href="https://stackoverflow.com/questions/61832615/kafka-message-ordering-guarantees/61832820#61832820">Kafka - Message Ordering Guarantees</a></p>
+<p>a) <a href="https://stackoverflow.com/questions/49982786/ordering-guarantees-when-using-idempotent-kafka-producer">Ordering guarantees when using idempotent Kafka Producer</a></p>
+</li>
+</ol>
+<h1 id="schema-of-messages">Schema of Messages</h1>
+<p>Schema of messages are like API specs, it is needed especially in the future to scale for communication between producers (upstream) and consumers (downstream)</p>
+<p>It is better to use Avro and schema registry endpoint might have to be setup</p>
+<ol>
+<li>
+<p><a href="https://www.confluent.io/kafka-summit-san-francisco-2019/how-kroger-embraced-a-schema-first-philosophy-in-building-real-time-data-pipelines/">How Kroger embraced a "schema first" philosophy in building real-time data pipelines</a></p>
+</li>
+<li>
+<p><a href="https://old.reddit.com/r/apachekafka/comments/g9xiqa/avro_benefits_and_schema_management/">Avro benefits and schema management (self.apachekafka)</a></p>
+</li>
+<li>
+<p><a href="https://github.com/eishay/jvm-serializers/wiki">jvm-serializers</a></p>
+</li>
+<li>
+<p><a href="https://old.reddit.com/r/apachespark/comments/twsouf/kafka_avro_evolving_schemas/">Kafka + Avro Evolving Schemas (self.apachespark)</a></p>
+</li>
+<li>
+<p><a href="https://old.reddit.com/r/apachekafka/comments/zks0b4/how_to_handle_failing_message_in_a_topic_with/">How to handle failing message in a topic with Avro schema?</a></p>
+</li>
+<li>
+<p><a href="https://old.reddit.com/r/apachekafka/comments/qfpxb9/schema_registryless_avro_python_produced_messages/">Schema Registry-less Avro Python Produced Messages - JDBC Sink Connector Deserialize issues</a></p>
+</li>
+<li>
+<p><a href="https://stackoverflow.com/questions/45635726/kafkaavroserializer-for-serializing-avro-without-schema-registry-url">KafkaAvroSerializer for serializing Avro without schema.registry.url</a></p>
+</li>
+<li>
+<p><a href="https://avro.apache.org/docs/1.7.7/spec.html#Schema+Resolution">Schema Resolution</a></p>
+</li>
+</ol>
+<h1 id="authentication-and-encryption">Authentication and Encryption</h1>
+<p>Kafka supports four security protocols</p>
+<ol>
+<li>
+<p><strong>PLAINTEXT:</strong> no encryption, no authentication</p>
+</li>
+<li>
+<p><strong>SSL:</strong> encrypted, authentication optional</p>
+</li>
+<li>
+<p><strong>SASL_PLAINTEXT:</strong> no encryption, authenticated</p>
+</li>
+<li>
+<p><strong>SASL_SSL:</strong> encrypted, authenticated. Suitable for external network</p>
+</li>
+</ol>
+<p>Choose one depends on your security preference</p>
+<p>There is a noticeable overhead in terms of CPU usage (20-30%), do load-testing on throughput or latency in your different setups</p>
+<p>Please check out official documentation to setup the security protocols for different programming languages and whether to use client certificates for authentication</p>
+<h1 id="monitoring-kafka-logs">Monitoring Kafka Logs</h1>
+<p>For self-hosted Kafka in k8s, in <code>Explore</code> with <code>Loki</code> data source, use the following query:</p>
+<p><em>{job="kafka/kafka"} |= ``</em></p>
+<p>The logs shown include all Kafka pods in k8s</p>
+<p>Or you can view it with Lens or kubectl directly in the Kafka Namespace</p>
+<h1 id="faqs">FAQs</h1>
+<h2 id="is-the-leader-part-of-isr-insync-replicas-list">Is the leader part of ISR (insync replicas) list</h2>
+<p>Yes, the leader is part of the ISR list.</p>
+<ol>
+<li><a href="https://stackoverflow.com/questions/63917374/is-the-leader-part-of-isr-list">Is the leader part of ISR list</a></li>
+</ol>
+<h2 id="do-all-brokers-in-kafka-always-have-one-replica-of-a-partition-of-a-topic">Do all brokers in Kafka always have one replica of a partition of a topic</h2>
+<p>Alternative question: Do all brokers in Kafka always sync with the leader of a partition?</p>
+<p>I did not find a decisive answer to this, there is nowhere mentioned of the number or maximum number of replicas of a partition nor whether all the brokers replicate one copy of the partition</p>
+<p>Only <code>min.insync.replicas</code> and <code>replication.factor</code> are being considered for the reliability of Kafka</p>
+<p>The book, Kafka The Definitive Guide 2nd Edition, and the following links that I have skimmed through:</p>
+<ol>
+<li>
+<p><a href="https://www.google.com/search?q=kafka+min.insync.replicas+will+replicate+to+all+brokers">search - kafka min.insync.replicas will replicate to all brokers</a></p>
+<p>a)  <a href="https://stackoverflow.com/questions/74921436/kafka-min-insync-replicas-replication-factor">Kafka min.insync.replicas replication.factor</a></p>
+</li>
+<li>
+<p><a href="https://www.google.com/search?q=how+many+replicas+will+kafka+sync+if+min+insync+replicas+is+set">search - how many replicas will kafka sync if min insync replicas is set</a></p>
+<p>a)  <a href="https://jeqo.github.io/notes/2021-12-02-kafka-min-isr/">Use min.insync.replicas for fault-tolerance</a></p>
+<p>b)  <a href="https://www.conduktor.io/kafka/kafka-topic-configuration-min-insync-replicas/">Kafka Topic Configuration: Minimum In-Sync Replicas</a></p>
+<p>c)  <a href="https://docs.confluent.io/kafka/design/replication.html">Kafka Replication and Committed Messages</a></p>
+</li>
+<li>
+<p><a href="https://www.google.com/search?q=Does+all+brokers+in+Kafka+always+have+one+replica+of+a+partition%3F">search - Does all brokers in Kafka always have one replica of a partition?</a></p>
+<p>a)  <a href="https://www.linkedin.com/pulse/apache-kafka-study-notes-2-partition-replication-youssef-ali">Apache Kafka Study Notes --- 2 --- Partition Replication</a></p>
+<p>b)  <a href="https://stackoverflow.com/questions/61203211/should-topic-partitions-be-replicated-across-all-broker-nodes-in-a-kafka-cluster">Should topic partitions be replicated across all broker nodes in a Kafka cluster?</a></p>
+<p>c)  <a href="https://stackoverflow.com/questions/61655973/understanding-relation-between-partitions-and-brokers-in-kafka">Understanding relation between partitions and brokers in kafka?</a></p>
+<p>d)  <a href="https://stackoverflow.com/questions/46862274/whether-kafka-broker-holds-replication-set-instead-of-partitions">Whether kafka broker holds replication set instead of partitions?</a></p>
+</li>
+<li>
+<p><a href="https://www.google.com/search?q=min+insync+replicas+what+is+the+maximum+kafka">search - min insync replicas what is the maximum kafka</a></p>
+<p>a)  <a href="https://stackoverflow.com/questions/58806481/what-is-the-maximum-replication-factor-for-a-partition-of-kafka-topic">What is the maximum replication factor for a partition of kafka topic</a></p>
+<p>b)  <a href="https://stackoverflow.com/questions/71666294/kafka-replication-factor-vs-min-insync-replicas">Kafka replication factor vs min.insync.replicas</a></p>
+</li>
+</ol>
+<h1 id="setup-kafka-and-grafana-dashboards-for-kafka-in-kubernetes">Setup Kafka and Grafana dashboards for Kafka in Kubernetes</h1>
+<p>helm chart bitnami/kafka 27.1.2</p>
+<p>Enable kafka exporter metrics at port 9308 and jmx built-in exporter metrics at port 5556</p>
+<p>configure prometheus to scrape these two endpoints</p>
+<p>Import grafana dashboard from kafka exporter by danielqsj in github</p>
+<h2 id="troubleshooting-kafka-consumer-lag-exporter-dashboard">Troubleshooting Kafka Consumer Lag Exporter Dashboard</h2>
+<p>After importing the kafka exporter dashboard by danielqsj in github, we can see that the dashboard panels showing no data in the graphs</p>
+<p>I have setup this dashboard in the past, I wouldn't already know this could have happened because it worked out of the box that time.</p>
+<p>So I have some questions. Does the dashboard has configuration problem? Or the metric endpoints are lacking metrics?</p>
+<p>Following is how I troubleshooted this problem:</p>
+<ol>
+<li>modifying the dashboard</li>
+</ol>
+<p>modify the dashboard variables with different metric name, 2 panels start to show data, but there is still no consumer lag</p>
+<ol>
+<li>troubleshoot which metric endpoint generates the relevant metrics</li>
+</ol>
+<p>This is done by searching the metric name (from the dashboard) by querying both metrics endpoints, this is to confirm that only kafka exporter metric endpoint generating relevant metrics, so jmx built-in exporter metric endpoint was not utilized</p>
+<ol>
+<li>using the kafka in such a way that relevant metrics (consumer lag) are emitted</li>
+</ol>
+<p>simulate consumer lag, checking online results show that programming is needed to simulate consumer lag</p>
+<p>however, I tested a way to simulate the consumer lag by using official kafka client scripts, a producer and a consumer</p>
+<p>start by sending messages to kafka using producer, keep sending the messages while consuming messages using a consumer</p>
+<p>the trick is to stop and start consuming messages for a few times, and consumer lag will be generated</p>
+<p>the problem is that it does not emit the metric when there is no consumer lag, this non-standard way of metric endpoint always cause more troubleshooting time than needed, it can still emit the metric with 0 consumer lag but the author of the code chose not to</p>
+<p>The book Kafka The Definitive Guide 2nd Edition Chaper 13 Metrics Basic Application Health Checks mentions, the lack of metrics could cause by failure of the monitoring system itself. We can monitor the metric endpoint over time, however that is really a hassle to setup</p>
+<p>Conclusion is that the Kafka Exporter (consumer lag) metric endpoint and dashboard are working</p>
+<h1 id="chatgpt-35-on-why-it-is-difficult-to-use-kafka">ChatGpt 3.5 on why it is difficult to use Kafka</h1>
+<p>Kafka can be challenging to use for several reasons:</p>
+<ol>
+<li>
+<p><strong>Complexity of Distributed Systems:</strong> Kafka is a distributed streaming platform, designed to handle large volumes of data across multiple servers. Managing distributed systems introduces complexities such as network communication, data replication, and fault tolerance, which can be challenging to understand and configure correctly.</p>
+</li>
+<li>
+<p><strong>Configuration and Tuning:</strong> Kafka offers a wide range of configuration options to optimize performance and reliability based on specific use cases. However, choosing the right configurations and tuning them for optimal performance requires a deep understanding of Kafka's internals and the underlying infrastructure.</p>
+</li>
+<li>
+<p><strong>Conceptual Complexity:</strong> Kafka introduces several new concepts, such as topics, partitions, brokers, producers, consumers, offsets, and consumer groups. Understanding how these concepts interact and affect each other can be overwhelming for new users.</p>
+</li>
+<li>
+<p><strong>Lack of Graphical Interface:</strong> Kafka primarily relies on command-line tools and APIs for administration and monitoring. While there are some third-party tools and graphical interfaces available, they may not provide the same level of functionality or flexibility as command-line tools.</p>
+</li>
+<li>
+<p><strong>Learning Curve:</strong> Due to its complexity and conceptual depth, mastering Kafka often requires a significant investment of time and effort. Users may need to familiarize themselves with Kafka's architecture, APIs, configuration options, and best practices before being able to use it effectively.</p>
+</li>
+</ol>
+<p>Despite these challenges, Kafka's scalability, durability, and performance make it a powerful tool for building real-time data pipelines, event-driven architectures, and streaming applications. With dedication and practice, users can overcome these difficulties and harness the full potential of Kafka for their projects.</p>
+
+
+             
+ 
+            
+            
+            
+
+
+
+
+
+
+
+            <hr/>
+        </div>
+        <section id="article-sidebar" class="span2">
+            <h4>Published</h4>
+            <time itemprop="dateCreated" datetime="2024-04-24T10:20:00+08:00">Wed 24 April 2024</time>
+            <h4>Category</h4>
+            <a class="category-link" href="/categories.html#message-bus-ref">Message-bus</a>
+<h4>Contact</h4>
+<div id="sidebar-social-link">
+</div>
+            
+
+
+
+
+
+            
+
+
+
+
+
+        </section>
+</div>
+</article>
+<!-- Root element of PhotoSwipe. Must have class pswp. -->
+<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
+
+    <!-- Background of PhotoSwipe.
+         It's a separate element as animating opacity is faster than rgba(). -->
+    <div class="pswp__bg"></div>
+
+    <!-- Slides wrapper with overflow:hidden. -->
+    <div class="pswp__scroll-wrap">
+
+        <!-- Container that holds slides.
+            PhotoSwipe keeps only 3 of them in the DOM to save memory.
+            Don't modify these 3 pswp__item elements, data is added later on. -->
+        <div class="pswp__container">
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+        </div>
+
+        <!-- Default (PhotoSwipeUI_Default) interface on top of sliding area. Can be changed. -->
+        <div class="pswp__ui pswp__ui--hidden">
+
+            <div class="pswp__top-bar">
+
+                <!--  Controls are self-explanatory. Order can be changed. -->
+
+                <div class="pswp__counter"></div>
+
+                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+
+                <button class="pswp__button pswp__button--share" title="Share"></button>
+
+                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+
+                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
+
+                <!-- Preloader demo https://codepen.io/dimsemenov/pen/yyBWoR -->
+                <!-- element will get class pswp__preloader--active when preloader is running -->
+                <div class="pswp__preloader">
+                    <div class="pswp__preloader__icn">
+                      <div class="pswp__preloader__cut">
+                        <div class="pswp__preloader__donut"></div>
+                      </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
+                <div class="pswp__share-tooltip"></div>
+            </div>
+
+            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+            </button>
+
+            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
+            </button>
+
+            <div class="pswp__caption">
+                <div class="pswp__caption__center"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div>                    </div>
+                    <div class="span1"></div>
+                </div>
+            </div>
+        </div>
+<footer>
+
+
+
+
+    <div id="fpowered">
+        Powered by: <a href="http://getpelican.com/" title="Pelican Home Page" target="_blank" rel="nofollow noopener noreferrer">Pelican</a>
+        Theme: <a href="https://elegant.oncrashreboot.com/" title="Theme Elegant Home Page" target="_blank" rel="nofollow noopener noreferrer">Elegant</a>
+    </div>
+</footer>            <script src="//code.jquery.com/jquery.min.js"></script>
+        <script src="//netdna.bootstrapcdn.com/twitter-bootstrap/2.3.2/js/bootstrap.min.js"></script>
+        <script src="/theme/js/elegant.prod.9e9d5ce754.js"></script>
+        <script>
+            function validateForm(query)
+            {
+                return (query.length > 0);
+            }
+        </script>
+
+    <script>
+    (function () {
+        if (window.location.hash.match(/^#comment-\d+$/)) {
+            $('#comment_thread').collapse('show');
+        }
+    })();
+    window.onhashchange=function(){
+        if (window.location.hash.match(/^#comment-\d+$/))
+            window.location.reload(true);
+    }
+    $('#comment_thread').on('shown', function () {
+        var link = document.getElementById('comment-accordion-toggle');
+        var old_innerHTML = link.innerHTML;
+        $(link).fadeOut(200, function() {
+            $(this).text('Click here to hide comments').fadeIn(200);
+        });
+        $('#comment_thread').on('hidden', function () {
+            $(link).fadeOut(200, function() {
+                $(this).text(old_innerHTML).fadeIn(200);
+            });
+        })
+    })
+</script>
+
+    </body>
+    <!-- Theme: Elegant built for Pelican
+        License : MIT -->
+</html>

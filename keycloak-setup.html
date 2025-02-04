@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <link rel="stylesheet" type="text/css" href="/theme/css/elegant.prod.9e9d5ce754.css" media="screen">
+        <link rel="stylesheet" type="text/css" href="/theme/css/custom.css" media="screen">
+
+        <link rel="dns-prefetch" href="//fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin>
+
+        <meta name="author" content="yihong" />
+
+        <meta property="og:type" content="article" />
+        <meta name="twitter:card" content="summary">
+
+<meta name="keywords" content=", Authentication, " />
+
+<meta property="og:title" content="Keycloak Setup "/>
+<meta property="og:url" content="/keycloak-setup.html" />
+<meta property="og:description" content="Table of Contents Keycloak Configuration Customizing Theme in Dev Mode Setting hostname and proxy mode Database PostgreSQL Container Registry Building and uploading the container image Token exchange Build the container image with the command Basic of Kubernetes and container runtime command Adding secrets to AWS Secrets Manager Deploy Keycloak in …" />
+<meta property="og:site_name" content="yihong&#39;s blog" />
+<meta property="og:article:author" content="yihong" />
+<meta property="og:article:published_time" content="2024-04-17T09:35:00+08:00" />
+<meta name="twitter:title" content="Keycloak Setup ">
+<meta name="twitter:description" content="Table of Contents Keycloak Configuration Customizing Theme in Dev Mode Setting hostname and proxy mode Database PostgreSQL Container Registry Building and uploading the container image Token exchange Build the container image with the command Basic of Kubernetes and container runtime command Adding secrets to AWS Secrets Manager Deploy Keycloak in …">
+
+        <title>Keycloak Setup  · yihong&#39;s blog
+</title>
+
+
+
+    </head>
+    <body>
+        <div id="content">
+            <div class="navbar navbar-static-top">
+                <div class="navbar-inner">
+                    <div class="container-fluid">
+                        <a class="btn btn-navbar" data-toggle="collapse" data-target=".nav-collapse">
+                            <span class="icon-bar"></span>
+                            <span class="icon-bar"></span>
+                            <span class="icon-bar"></span>
+                        </a>
+                        <a class="brand" href="/"><span class=site-name>yihong's blog</span></a>
+                        <div class="nav-collapse collapse">
+                            <ul class="nav pull-right top-menu">
+                                <li >
+                                    <a href=
+                                       "/"
+                                    >Home</a>
+                                </li>
+                                <li ><a href="/categories.html">Categories</a></li>
+                                <li ><a href="/tags.html">Tags</a></li>
+                                <li ><a href="/archives.html">Archives</a></li>
+                                <li><form class="navbar-search" action="/search.html" onsubmit="return validateForm(this.elements['q'].value);"> <input type="text" class="search-query" placeholder="Search" name="q" id="tipue_search_input"></form></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="container-fluid">
+                <div class="row-fluid">
+                    <div class="span1"></div>
+                    <div class="span10">
+<article itemscope>
+<div class="row-fluid">
+    <header class="page-header span10 offset2">
+        <h1>
+            <a href="/keycloak-setup.html">
+                Keycloak Setup
+            </a>
+        </h1>
+    </header>
+</div>
+
+<div class="row-fluid">
+        <div class="span8 offset2 article-content">
+            
+            <div class="toc"><span class="toctitle">Table of Contents</span><ul>
+<li><a href="#keycloak-configuration">Keycloak Configuration</a><ul>
+<li><a href="#customizing-theme-in-dev-mode">Customizing Theme in Dev Mode</a></li>
+<li><a href="#setting-hostname-and-proxy-mode">Setting hostname and proxy mode</a></li>
+</ul>
+</li>
+<li><a href="#database-postgresql">Database PostgreSQL</a></li>
+<li><a href="#container-registry">Container Registry</a></li>
+<li><a href="#building-and-uploading-the-container-image">Building and uploading the container image</a><ul>
+<li><a href="#token-exchange">Token exchange</a></li>
+<li><a href="#build-the-container-image-with-the-command">Build the container image with the command</a></li>
+</ul>
+</li>
+<li><a href="#basic-of-kubernetes-and-container-runtime-command">Basic of Kubernetes and container runtime command</a></li>
+<li><a href="#adding-secrets-to-aws-secrets-manager">Adding secrets to AWS Secrets Manager</a></li>
+<li><a href="#deploy-keycloak-in-kubernetes">Deploy Keycloak in Kubernetes</a><ul>
+<li><a href="#create-namespace-and-image-pull-secret">Create namespace and image pull secret</a></li>
+<li><a href="#setup-secret">Setup Secret</a></li>
+<li><a href="#apply-deployment-service-and-ingress">Apply deployment, service and ingress</a><ul>
+<li><a href="#create-keycloak-deploymentyaml-file">Create keycloak-deployment.yaml file</a></li>
+<li><a href="#create-keycloak-serviceyaml-file">Create keycloak-service.yaml file</a></li>
+<li><a href="#create-keycloak-ingressyaml-file">Create keycloak-ingress.yaml file</a></li>
+<li><a href="#apply-the-kubernetes-manifests">Apply the Kubernetes manifests</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a href="#add-url-to-aws-route53">Add URL to AWS Route53</a></li>
+<li><a href="#links">Links</a></li>
+<li><a href="#keycloak-operator">Keycloak Operator</a></li>
+</ul>
+</div>
+<h1 id="keycloak-configuration">Keycloak Configuration</h1>
+<h2 id="customizing-theme-in-dev-mode">Customizing Theme in Dev Mode</h2>
+<p>Use the below command only to disable caching and this makes is possible to edit theme resources directly from <code>themes/</code> directory, hence you can see the effect of the changes without restarting Keycloak, only in Dev mode</p>
+<div class="highlight"><pre><span></span><code>bin/kc.[sh|bat] start --spi-theme-static-max-age=-1 --spi-theme-cache-themes=false --spi-theme-cache-templates=false
+</code></pre></div>
+
+<p>Reference:</p>
+<ol>
+<li>
+<p><a href="https://www.keycloak.org/docs/latest/server_development/#creating-a-theme">Creating a theme</a></p>
+</li>
+<li>
+<p><a href="https://www.baeldung.com/spring-keycloak-custom-themes">Customizing Themes for Keycloak</a></p>
+</li>
+</ol>
+<h2 id="setting-hostname-and-proxy-mode">Setting hostname and proxy mode</h2>
+<p>The <code>--hostname-strict-https=false</code> and <code>--hostname-strict=false</code> must be passed into the command <code>start --optimized</code> else error will be encountered</p>
+<p>The proxy mode must be set or else Keycloak will fail to run, but you would still see the message claiming that proxy mode is to be deprecated, actually it is still not deprecated</p>
+<div class="highlight"><pre><span></span><code>bin/kc.[sh|bat] start --optimized --hostname-strict-https=false --hostname-strict=false --proxy=edge
+</code></pre></div>
+
+<p>Read the following links for more understanding:</p>
+<ol>
+<li>
+<p><a href="https://www.keycloak.org/server/hostname">Configuring the hostname</a></p>
+</li>
+<li>
+<p><a href="https://www.keycloak.org/server/reverseproxy">Using a reverse proxy</a></p>
+</li>
+<li>
+<p><a href="https://www.keycloak.org/server/all-config?options-filter=all#category-hostname">Hostname config option</a></p>
+</li>
+<li>
+<p><a href="https://www.keycloak.org/server/configuration#_starting_keycloak_in_production_mode">Starting Keycloak in production mode</a></p>
+</li>
+<li>
+<p><a href="https://unix.stackexchange.com/questions/690655/strict-hostname-resolution-configured-but-no-hostname-was-set">Strict hostname resolution configured but no hostname was set</a></p>
+</li>
+</ol>
+<h1 id="database-postgresql">Database PostgreSQL</h1>
+<ol>
+<li>
+<p>Create a user for Keycloak</p>
+<p>a)  permission, set "Can Login"</p>
+<p>b)  Set a password for this user</p>
+</li>
+<li>
+<p>Create a database for Keycloak</p>
+<p>a)  permission, assign above user as the owner for the database</p>
+</li>
+</ol>
+<h1 id="container-registry">Container Registry</h1>
+<ol>
+<li>
+<p>Create a container registry in the project git repository in GitLab</p>
+</li>
+<li>
+<p>Create an access token for the project</p>
+<p>a)  Expiry date default maximum should be 1 year</p>
+<p>b)  Role is maintainer (other roles could be used as well, I think)</p>
+<p>c)  Scopes includes read_registry and write_registry</p>
+<p>d)  Create the token and copy the secret</p>
+</li>
+<li>
+<p>Retrieve the username of the access token</p>
+<p>a)  Search for it in the member section in the GitLab project</p>
+<p>b)  It is created as a bot</p>
+<p>c)  Source is "Direct member"</p>
+<p>d)  Note down the username for this member after the "@" sign</p>
+</li>
+</ol>
+<h1 id="building-and-uploading-the-container-image">Building and uploading the container image</h1>
+<p><a href="https://www.keycloak.org/server/containers">Running Keycloak in a container</a></p>
+<p>Build the container with the Dockerfile copied and modified from above link</p>
+<p>Dockerfile:</p>
+<div class="highlight"><pre><span></span><code><span class="n">FROM</span><span class="w"> </span><span class="n">quay</span><span class="o">.</span><span class="n">io</span><span class="o">/</span><span class="n">keycloak</span><span class="o">/</span><span class="n">keycloak</span><span class="p">:</span><span class="n">latest</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="n">builder</span>
+
+<span class="c1"># Enable health and metrics support</span>
+<span class="n">ENV</span><span class="w"> </span><span class="n">KC_HEALTH_ENABLED</span><span class="o">=</span><span class="bp">true</span>
+<span class="n">ENV</span><span class="w"> </span><span class="n">KC_METRICS_ENABLED</span><span class="o">=</span><span class="bp">true</span>
+
+<span class="c1"># Configure a database vendor</span>
+<span class="n">ENV</span><span class="w"> </span><span class="n">KC_DB</span><span class="o">=</span><span class="n">postgres</span>
+
+<span class="n">WORKDIR</span><span class="w"> </span><span class="o">/</span><span class="n">opt</span><span class="o">/</span><span class="n">keycloak</span>
+
+<span class="n">COPY</span><span class="w"> </span><span class="n">THEME</span><span class="o">-</span><span class="n">FOLDER</span><span class="w"> </span><span class="n">themes</span><span class="o">/</span><span class="n">THEME</span><span class="o">-</span><span class="n">FOLDER</span>
+
+<span class="c1"># for demonstration purposes only, please make sure to use proper certificates in</span>
+<span class="n">production</span><span class="w"> </span><span class="n">instead</span>
+<span class="c1"># probably related to token exchange or sensitive option</span>
+<span class="c1">#RUN keytool -genkeypair -storepass password -storetype PKCS12 -keyalg RSA -keysize 2048 -dname &quot;CN=server&quot; -alias server -ext &quot;SAN:c=DNS:localhost,IP:127.0.0.1&quot; -keystore conf/server.keystore</span>
+
+<span class="n">RUN</span><span class="w"> </span><span class="o">/</span><span class="n">opt</span><span class="o">/</span><span class="n">keycloak</span><span class="o">/</span><span class="n">bin</span><span class="o">/</span><span class="n">kc</span><span class="o">.</span><span class="n">sh</span><span class="w"> </span><span class="n">build</span>
+
+<span class="n">FROM</span><span class="w"> </span><span class="n">quay</span><span class="o">.</span><span class="n">io</span><span class="o">/</span><span class="n">keycloak</span><span class="o">/</span><span class="n">keycloak</span><span class="p">:</span><span class="n">latest</span>
+<span class="n">COPY</span><span class="w"> </span><span class="o">--</span><span class="n">from</span><span class="o">=</span><span class="n">builder</span><span class="w"> </span><span class="o">/</span><span class="n">opt</span><span class="o">/</span><span class="n">keycloak</span><span class="o">/</span><span class="w"> </span><span class="o">/</span><span class="n">opt</span><span class="o">/</span><span class="n">keycloak</span><span class="o">/</span>
+
+<span class="c1"># change these values to point to a running postgres instance</span>
+<span class="c1">#ENV KC_DB=postgres</span>
+<span class="c1">#ENV KC_DB_URL=&lt;DBURL&gt;</span>
+<span class="c1">#ENV KC_DB_USERNAME=&lt;DBUSERNAME&gt;</span>
+<span class="c1">#ENV KC_DB_PASSWORD=&lt;DBPASSWORD&gt;</span>
+<span class="c1">#ENV KC_HOSTNAME=localhost</span>
+
+<span class="n">ENTRYPOINT</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;/opt/keycloak/bin/kc.sh&quot;</span><span class="p">]</span>
+</code></pre></div>
+
+<ol>
+<li>
+<p>Health and metrics endpoints are enabled in the Dockerfile</p>
+</li>
+<li>
+<p>Uses a PostgreSQL database</p>
+</li>
+<li>
+<p>Copy theme folder in the project into container build stage <code>./theme</code> relative path to working directory</p>
+<p>a) <a href="https://www.baeldung.com/keycloak-custom-login-page">Customizing the Login Page for Keycloak</a></p>
+<p>b) <a href="https://www.baeldung.com/spring-keycloak-custom-themes">Customizing Themes for Keycloak</a></p>
+<p>c) <a href="https://stackoverflow.com/questions/39356300/avoid-keycloak-default-login-page-and-use-project-login-page">Avoid keycloak default login page and use project login page</a></p>
+</li>
+<li>
+<p>Importing a realm on startup (admin bootstrapping) is not recommended other than running Keycloak in Dev mode</p>
+<p>a) <a href="https://www.keycloak.org/server/containers#_importing_a_realm_on_startup">Importing A Realm On Startup</a></p>
+</li>
+<li>
+<p><a href="https://www.keycloak.org/server/configuration#_setting_sensitive_options_using_a_java_keystore_file">Setting sensitive options using a Java KeyStore file</a></p>
+<p>a)  Not enabled until further notice</p>
+</li>
+</ol>
+<h2 id="token-exchange">Token exchange</h2>
+<p>This feature is disabled until further notice</p>
+<ol>
+<li>
+<p><a href="https://keycloak.ch/keycloak-tutorials/tutorial-token-exchange/">Configuring Token Exchange using the CLI</a></p>
+</li>
+<li>
+<p><a href="https://www.keycloak.org/docs/latest/securing_apps/#_token-exchange">Using token exchange</a></p>
+</li>
+<li>
+<p><a href="https://github.com/keycloak/keycloak/discussions/26502">Token-Exchange Use-cases</a></p>
+</li>
+</ol>
+<p>the argument <code>--features=token-exchange</code> as mentioned in</p>
+<ol>
+<li><a href="https://www.keycloak.org/server/containers#_running_a_standard_keycloak_container">Running a standard Keycloak container</a></li>
+</ol>
+<h2 id="build-the-container-image-with-the-command">Build the container image with the command</h2>
+<div class="highlight"><pre><span></span><code>podman build . -t localhost/keycloak:v1.0.0
+podman login gitlab-url:port
+podman push localhost/keycloak:v1.0.0
+gitlab-url:port/UserOrGroup/keycloak:v1.0.0
+</code></pre></div>
+
+<h1 id="basic-of-kubernetes-and-container-runtime-command">Basic of Kubernetes and container runtime command</h1>
+<p><code>command</code> in Kubernetes means <code>ENTRYPOINT</code> in container runtime</p>
+<p><code>args</code> in Kubernetes means <code>CMD</code> in container runtime</p>
+<p>It is best to write all these fields in container runtime and Kubernetes manifest to avoid confusion, e.g. what command and arguments are combined.</p>
+<p>It is better to set <code>ENTRYPOINT</code> with only the executable and <code>CMD</code> with arguments, remove <code>CMD</code> if no argument is needed.</p>
+<p>Read</p>
+<ol>
+<li>
+<p><a href="https://kubernetes.io/docs/tasks/inject-data-application/define-command-argument-container/#running-a-command-in-a-shell">Define a Command and Arguments for a Container</a></p>
+</li>
+<li>
+<p><a href="https://docs.docker.com/reference/dockerfile/#entrypoint">ENTRYPOINT</a></p>
+</li>
+<li>
+<p><a href="https://docs.docker.com/reference/dockerfile/#cmd">CMD</a></p>
+</li>
+</ol>
+<h1 id="adding-secrets-to-aws-secrets-manager">Adding secrets to AWS Secrets Manager</h1>
+<ol>
+<li>
+<p>Create a new secret</p>
+</li>
+<li>
+<p>Add the following secrets in the key/value</p>
+<p>a)  keycloak-admin = ADMINUSERNAME</p>
+<p>b)  keycloak-admin-password = ADMINPASSWORD</p>
+<p>c)  kc-db-url-host = postgresql.domain.local</p>
+<p>d)  kc-db-url-port = 8888</p>
+<p>e)  kc-db-url-database = DBFORKEYCLOAK</p>
+<p>f)  kc-db-username = DBKEYCLOAKUSERNAME</p>
+<p>g)  kc-db-password = DBKEYCLOAKPASSWORD</p>
+</li>
+<li>
+<p>Add tags</p>
+</li>
+<li>
+<p>Encryption with aws/secretsmanager key</p>
+</li>
+</ol>
+<h1 id="deploy-keycloak-in-kubernetes">Deploy Keycloak in Kubernetes</h1>
+<h2 id="create-namespace-and-image-pull-secret">Create namespace and image pull secret</h2>
+<div class="highlight"><pre><span></span><code><span class="n">kubectl</span><span class="w"> </span><span class="n">create</span><span class="w"> </span><span class="n">ns</span><span class="w"> </span><span class="n">keycloak</span>
+<span class="n">kubectl</span><span class="w"> </span><span class="o">-</span><span class="n">n</span><span class="w"> </span><span class="n">keycloak</span><span class="w"> </span><span class="n">create</span><span class="w"> </span><span class="n">secret</span><span class="w"> </span><span class="n">docker</span><span class="o">-</span><span class="n">registry</span><span class="w"> </span><span class="n">TOKENNAME</span><span class="w"> </span><span class="o">--</span><span class="n">docker</span><span class="o">-</span><span class="n">server</span><span class="o">=</span><span class="nl">CONTAINERREGISTRYURL:</span><span class="n">PORT</span><span class="w"> </span><span class="o">--</span><span class="n">docker</span><span class="o">-</span><span class="n">username</span><span class="o">=</span><span class="n">USERNAME</span><span class="w"> </span><span class="o">--</span><span class="n">docker</span><span class="o">-</span><span class="n">password</span><span class="o">=</span><span class="n">PASSWORD</span>
+</code></pre></div>
+
+<h2 id="setup-secret">Setup Secret</h2>
+<p>Create a bash script below to retrieve secrets from AWS Secrets Manager and create a Kubernetes Secret manifest from it</p>
+<div class="highlight"><pre><span></span><code><span class="n">aws</span><span class="w"> </span><span class="n">secretsmanager</span><span class="w"> </span><span class="n">get</span><span class="o">-</span><span class="n">secret</span><span class="o">-</span><span class="n">value</span><span class="w"> </span><span class="o">--</span><span class="n">secret</span><span class="o">-</span><span class="n">id</span><span class="w"> </span><span class="s">&quot;SECRETNAME&quot;</span><span class="w"> </span><span class="o">--</span><span class="n">region</span><span class="w"> </span><span class="s">&quot;REGION&quot;</span><span class="w"> </span><span class="o">--</span><span class="n">query</span><span class="w"> </span><span class="n">SecretString</span><span class="w"> </span><span class="o">--</span><span class="k">output</span><span class="w"> </span><span class="n">text</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="n">secret</span><span class="p">.</span><span class="n">json</span><span class="w"> </span><span class="o">&amp;&amp;</span>
+<span class="n">jq</span><span class="w"> </span><span class="o">-</span><span class="n">r</span><span class="w"> </span><span class="s">&quot;to_entries|map(</span><span class="se">\&quot;</span><span class="s">\(.key)=\(.value|tostring)</span><span class="se">\&quot;</span><span class="s">)|.[]&quot;</span><span class="w"> </span><span class="n">secret</span><span class="p">.</span><span class="n">json</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="n">secret</span><span class="p">.</span><span class="n">env</span><span class="w"> </span><span class="o">&amp;&amp;</span>
+<span class="n">kubectl</span><span class="w"> </span><span class="o">-</span><span class="n">n</span><span class="w"> </span><span class="n">keycloak</span><span class="w"> </span><span class="n">create</span><span class="w"> </span><span class="n">secret</span><span class="w"> </span><span class="n">generic</span><span class="w"> </span><span class="n">keycloak</span><span class="o">-</span><span class="n">secret</span><span class="w"> </span><span class="o">--</span><span class="n">dry</span><span class="o">-</span><span class="n">run</span><span class="o">=</span><span class="n">client</span><span class="w"> </span><span class="o">--</span><span class="k">output</span><span class="o">=</span><span class="n">yaml</span><span class="w"> </span><span class="o">--</span><span class="n">from</span><span class="o">-</span><span class="n">env</span><span class="o">-</span><span class="n">file</span><span class="w"> </span><span class="n">secret</span><span class="p">.</span><span class="n">env</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="n">keycloak</span><span class="o">-</span><span class="n">secret</span><span class="p">.</span><span class="n">yaml</span><span class="w"> </span><span class="o">&amp;&amp;</span>
+<span class="n">rm</span><span class="w"> </span><span class="n">secret</span><span class="p">.</span><span class="n">json</span><span class="w"> </span><span class="n">secret</span><span class="p">.</span><span class="n">env</span>
+</code></pre></div>
+
+<p>Then apply the Kubernetes Secret manifest, and delete it afterwards to avoid commiting to git repository</p>
+<div class="highlight"><pre><span></span><code>kubectl apply -f keycloak-secret.yaml &amp;&amp; rm keycloak-secret.yaml
+</code></pre></div>
+
+<h2 id="apply-deployment-service-and-ingress">Apply deployment, service and ingress</h2>
+<h3 id="create-keycloak-deploymentyaml-file">Create keycloak-deployment.yaml file</h3>
+<div class="highlight"><pre><span></span><code><span class="n">apiVersion</span><span class="o">:</span><span class="w"> </span><span class="n">apps</span><span class="o">/</span><span class="n">v1</span>
+<span class="n">kind</span><span class="o">:</span><span class="w"> </span><span class="n">Deployment</span>
+<span class="n">metadata</span><span class="o">:</span>
+<span class="w">  </span><span class="n">name</span><span class="o">:</span><span class="w"> </span><span class="n">keycloak</span>
+<span class="w">  </span><span class="kd">namespace</span><span class="o">:</span><span class="w"> </span><span class="n">keycloak</span>
+<span class="w">  </span><span class="n">labels</span><span class="o">:</span>
+<span class="w">    </span><span class="n">app</span><span class="o">:</span><span class="w"> </span><span class="n">keycloak</span>
+<span class="n">spec</span><span class="o">:</span>
+<span class="w">  </span><span class="n">replicas</span><span class="o">:</span><span class="w"> </span><span class="mi">1</span>
+<span class="w">  </span><span class="n">selector</span><span class="o">:</span>
+<span class="w">    </span><span class="n">matchLabels</span><span class="o">:</span>
+<span class="w">      </span><span class="n">app</span><span class="o">:</span><span class="w"> </span><span class="n">keycloak</span>
+<span class="w">  </span><span class="n">template</span><span class="o">:</span>
+<span class="w">    </span><span class="n">metadata</span><span class="o">:</span>
+<span class="w">      </span><span class="n">labels</span><span class="o">:</span>
+<span class="w">        </span><span class="n">app</span><span class="o">:</span><span class="w"> </span><span class="n">keycloak</span>
+<span class="w">    </span><span class="n">spec</span><span class="o">:</span>
+<span class="w">      </span><span class="n">imagePullSecrets</span><span class="o">:</span>
+<span class="w">      </span><span class="o">-</span><span class="w"> </span><span class="n">name</span><span class="o">:</span><span class="w"> </span><span class="n">TOKENNAME</span>
+<span class="w">      </span><span class="n">containers</span><span class="o">:</span>
+<span class="w">        </span><span class="o">-</span><span class="w"> </span><span class="n">name</span><span class="o">:</span><span class="w"> </span><span class="n">keycloak</span>
+<span class="w">          </span><span class="n">image</span><span class="o">:</span><span class="w"> </span><span class="n">gitlab</span><span class="o">-</span><span class="n">url</span><span class="o">:</span><span class="n">port</span><span class="sr">/UserOrGroup/</span><span class="n">keycloak</span><span class="o">:</span><span class="n">v1</span><span class="o">.</span><span class="mf">0.0</span>
+<span class="w">          </span><span class="n">imagePullPolicy</span><span class="o">:</span><span class="w"> </span><span class="n">Always</span>
+<span class="w">          </span><span class="err">#</span><span class="n">resources</span><span class="o">:</span>
+<span class="w">          </span><span class="err">#</span><span class="w">  </span><span class="n">requests</span><span class="o">:</span>
+<span class="w">          </span><span class="err">#</span><span class="w">    </span><span class="n">memory</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;1024Mi&quot;</span>
+<span class="w">          </span><span class="err">#</span><span class="w">    </span><span class="n">cpu</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;1&quot;</span>
+<span class="w">          </span><span class="err">#</span><span class="w">  </span><span class="n">limits</span><span class="o">:</span>
+<span class="w">          </span><span class="err">#</span><span class="w">    </span><span class="n">memory</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;0&quot;</span>
+<span class="w">          </span><span class="err">#</span><span class="w">    </span><span class="n">cpu</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;0&quot;</span>
+<span class="w">          </span><span class="n">ports</span><span class="o">:</span>
+<span class="w">            </span><span class="o">-</span><span class="w"> </span><span class="n">name</span><span class="o">:</span><span class="w"> </span><span class="n">http</span>
+<span class="w">              </span><span class="n">containerPort</span><span class="o">:</span><span class="w"> </span><span class="mi">8080</span>
+<span class="w">          </span><span class="n">readinessProbe</span><span class="o">:</span>
+<span class="w">            </span><span class="n">httpGet</span><span class="o">:</span>
+<span class="w">              </span><span class="n">path</span><span class="o">:</span><span class="w"> </span><span class="sr">/realms/</span><span class="n">master</span>
+<span class="w">              </span><span class="n">port</span><span class="o">:</span><span class="w"> </span><span class="mi">8080</span>
+<span class="w">          </span><span class="n">command</span><span class="o">:</span><span class="w"> </span><span class="o">[</span><span class="s2">&quot;/opt/keycloak/bin/kc.sh&quot;</span><span class="o">]</span>
+<span class="w">          </span><span class="n">args</span><span class="o">:</span><span class="w"> </span><span class="o">[</span><span class="s2">&quot;start&quot;</span><span class="o">,</span><span class="w"> </span><span class="s2">&quot;--optimized&quot;</span><span class="o">,</span><span class="w"> </span><span class="s2">&quot;--hostname-strict-https=false&quot;</span><span class="o">,</span><span class="w"> </span><span class="s2">&quot;--hostname-strict=false&quot;</span><span class="o">,</span><span class="w"> </span><span class="s2">&quot;--proxy=edge&quot;</span><span class="o">]</span>
+<span class="w">          </span><span class="n">env</span><span class="o">:</span>
+<span class="w">            </span><span class="o">-</span><span class="w"> </span><span class="n">name</span><span class="o">:</span><span class="w"> </span><span class="n">KEYCLOAK_ADMIN</span>
+<span class="w">              </span><span class="n">valueFrom</span><span class="o">:</span>
+<span class="w">                </span><span class="n">secretKeyRef</span><span class="o">:</span>
+<span class="w">                  </span><span class="n">name</span><span class="o">:</span><span class="w"> </span><span class="n">keycloak</span><span class="o">-</span><span class="n">secret</span>
+<span class="w">                  </span><span class="n">key</span><span class="o">:</span><span class="w"> </span><span class="n">keycloak</span><span class="o">-</span><span class="n">admin</span>
+<span class="w">            </span><span class="o">-</span><span class="w"> </span><span class="n">name</span><span class="o">:</span><span class="w"> </span><span class="n">KEYCLOAK_ADMIN_PASSWORD</span>
+<span class="w">              </span><span class="n">valueFrom</span><span class="o">:</span>
+<span class="w">                </span><span class="n">secretKeyRef</span><span class="o">:</span>
+<span class="w">                  </span><span class="n">name</span><span class="o">:</span><span class="w"> </span><span class="n">keycloak</span><span class="o">-</span><span class="n">secret</span>
+<span class="w">                  </span><span class="n">key</span><span class="o">:</span><span class="w"> </span><span class="n">keycloak</span><span class="o">-</span><span class="n">admin</span><span class="o">-</span><span class="n">password</span>
+<span class="w">            </span><span class="o">-</span><span class="w"> </span><span class="n">name</span><span class="o">:</span><span class="w"> </span><span class="n">KC_DB_URL_HOST</span>
+<span class="w">              </span><span class="n">valueFrom</span><span class="o">:</span>
+<span class="w">                </span><span class="n">secretKeyRef</span><span class="o">:</span>
+<span class="w">                  </span><span class="n">name</span><span class="o">:</span><span class="w"> </span><span class="n">keycloak</span><span class="o">-</span><span class="n">secret</span>
+<span class="w">                  </span><span class="n">key</span><span class="o">:</span><span class="w"> </span><span class="n">kc</span><span class="o">-</span><span class="n">db</span><span class="o">-</span><span class="n">url</span><span class="o">-</span><span class="n">host</span>
+<span class="w">            </span><span class="o">-</span><span class="w"> </span><span class="n">name</span><span class="o">:</span><span class="w"> </span><span class="n">KC_DB_URL_PORT</span>
+<span class="w">              </span><span class="n">valueFrom</span><span class="o">:</span>
+<span class="w">                </span><span class="n">secretKeyRef</span><span class="o">:</span>
+<span class="w">                  </span><span class="n">name</span><span class="o">:</span><span class="w"> </span><span class="n">keycloak</span><span class="o">-</span><span class="n">secret</span>
+<span class="w">                  </span><span class="n">key</span><span class="o">:</span><span class="w"> </span><span class="n">kc</span><span class="o">-</span><span class="n">db</span><span class="o">-</span><span class="n">url</span><span class="o">-</span><span class="n">port</span>
+<span class="w">            </span><span class="o">-</span><span class="w"> </span><span class="n">name</span><span class="o">:</span><span class="w"> </span><span class="n">KC_DB_URL_DATABASE</span>
+<span class="w">              </span><span class="n">valueFrom</span><span class="o">:</span>
+<span class="w">                </span><span class="n">secretKeyRef</span><span class="o">:</span>
+<span class="w">                  </span><span class="n">name</span><span class="o">:</span><span class="w"> </span><span class="n">keycloak</span><span class="o">-</span><span class="n">secret</span>
+<span class="w">                  </span><span class="n">key</span><span class="o">:</span><span class="w"> </span><span class="n">kc</span><span class="o">-</span><span class="n">db</span><span class="o">-</span><span class="n">url</span><span class="o">-</span><span class="n">database</span>
+<span class="w">            </span><span class="o">-</span><span class="w"> </span><span class="n">name</span><span class="o">:</span><span class="w"> </span><span class="n">KC_DB_USERNAME</span>
+<span class="w">              </span><span class="n">valueFrom</span><span class="o">:</span>
+<span class="w">                </span><span class="n">secretKeyRef</span><span class="o">:</span>
+<span class="w">                  </span><span class="n">name</span><span class="o">:</span><span class="w"> </span><span class="n">keycloak</span><span class="o">-</span><span class="n">secret</span>
+<span class="w">                  </span><span class="n">key</span><span class="o">:</span><span class="w"> </span><span class="n">kc</span><span class="o">-</span><span class="n">db</span><span class="o">-</span><span class="n">username</span>
+<span class="w">            </span><span class="o">-</span><span class="w"> </span><span class="n">name</span><span class="o">:</span><span class="w"> </span><span class="n">KC_DB_PASSWORD</span>
+<span class="w">              </span><span class="n">valueFrom</span><span class="o">:</span>
+<span class="w">                </span><span class="n">secretKeyRef</span><span class="o">:</span>
+<span class="w">                  </span><span class="n">name</span><span class="o">:</span><span class="w"> </span><span class="n">keycloak</span><span class="o">-</span><span class="n">secret</span>
+<span class="w">                  </span><span class="n">key</span><span class="o">:</span><span class="w"> </span><span class="n">kc</span><span class="o">-</span><span class="n">db</span><span class="o">-</span><span class="n">password</span>
+</code></pre></div>
+
+<h3 id="create-keycloak-serviceyaml-file">Create keycloak-service.yaml file</h3>
+<div class="highlight"><pre><span></span><code><span class="n">apiVersion</span><span class="o">:</span><span class="w"> </span><span class="n">v1</span>
+<span class="n">kind</span><span class="o">:</span><span class="w"> </span><span class="n">Service</span>
+<span class="n">metadata</span><span class="o">:</span>
+<span class="w">  </span><span class="n">name</span><span class="o">:</span><span class="w"> </span><span class="n">keycloak</span><span class="o">-</span><span class="n">service</span>
+<span class="w">  </span><span class="kd">namespace</span><span class="o">:</span><span class="w"> </span><span class="n">keycloak</span>
+<span class="w">  </span><span class="n">labels</span><span class="o">:</span>
+<span class="w">    </span><span class="n">app</span><span class="o">:</span><span class="w"> </span><span class="n">keycloak</span>
+<span class="n">spec</span><span class="o">:</span>
+<span class="w">  </span><span class="n">ports</span><span class="o">:</span>
+<span class="w">    </span><span class="o">-</span><span class="w"> </span><span class="n">name</span><span class="o">:</span><span class="w"> </span><span class="n">http</span>
+<span class="w">      </span><span class="n">port</span><span class="o">:</span><span class="w"> </span><span class="mi">80</span>
+<span class="w">      </span><span class="n">targetPort</span><span class="o">:</span><span class="w"> </span><span class="mi">8080</span>
+<span class="w">  </span><span class="n">selector</span><span class="o">:</span>
+<span class="w">    </span><span class="n">app</span><span class="o">:</span><span class="w"> </span><span class="n">keycloak</span>
+<span class="w">  </span><span class="n">type</span><span class="o">:</span><span class="w"> </span><span class="n">ClusterIP</span>
+</code></pre></div>
+
+<h3 id="create-keycloak-ingressyaml-file">Create keycloak-ingress.yaml file</h3>
+<div class="highlight"><pre><span></span><code><span class="n">apiVersion</span><span class="o">:</span><span class="w"> </span><span class="n">networking</span><span class="o">.</span><span class="na">k8s</span><span class="o">.</span><span class="na">io</span><span class="o">/</span><span class="n">v1</span>
+<span class="n">kind</span><span class="o">:</span><span class="w"> </span><span class="n">Ingress</span>
+<span class="n">metadata</span><span class="o">:</span>
+<span class="w">  </span><span class="n">annotations</span><span class="o">:</span>
+<span class="w">    </span><span class="n">cert</span><span class="o">-</span><span class="n">manager</span><span class="o">.</span><span class="na">io</span><span class="o">/</span><span class="n">cluster</span><span class="o">-</span><span class="n">issuer</span><span class="o">:</span><span class="w"> </span><span class="n">CLUSTERISSUENAME</span>
+<span class="w">    </span><span class="n">nginx</span><span class="o">.</span><span class="na">ingress</span><span class="o">.</span><span class="na">kubernetes</span><span class="o">.</span><span class="na">io</span><span class="sr">/rewrite-target: /</span>
+<span class="w">  </span><span class="n">name</span><span class="o">:</span><span class="w"> </span><span class="n">keycloak</span><span class="o">-</span><span class="n">ingress</span>
+<span class="w">  </span><span class="kd">namespace</span><span class="o">:</span><span class="w"> </span><span class="n">keycloak</span>
+<span class="n">spec</span><span class="o">:</span>
+<span class="w">  </span><span class="n">ingressClassName</span><span class="o">:</span><span class="w"> </span><span class="n">nginx</span>
+<span class="w">  </span><span class="n">rules</span><span class="o">:</span>
+<span class="w">  </span><span class="o">-</span><span class="w"> </span><span class="n">host</span><span class="o">:</span><span class="w"> </span><span class="n">KEYCLOAKURL</span>
+<span class="w">    </span><span class="n">http</span><span class="o">:</span>
+<span class="w">      </span><span class="n">paths</span><span class="o">:</span>
+<span class="w">      </span><span class="o">-</span><span class="w"> </span><span class="n">backend</span><span class="o">:</span>
+<span class="w">          </span><span class="n">service</span><span class="o">:</span>
+<span class="w">            </span><span class="n">name</span><span class="o">:</span><span class="w"> </span><span class="n">keycloak</span><span class="o">-</span><span class="n">service</span>
+<span class="w">            </span><span class="n">port</span><span class="o">:</span>
+<span class="w">              </span><span class="n">number</span><span class="o">:</span><span class="w"> </span><span class="mi">80</span>
+<span class="w">        </span><span class="n">path</span><span class="o">:</span><span class="w"> </span><span class="o">/</span>
+<span class="w">        </span><span class="n">pathType</span><span class="o">:</span><span class="w"> </span><span class="n">Prefix</span>
+<span class="w">  </span><span class="n">tls</span><span class="o">:</span>
+<span class="w">  </span><span class="o">-</span><span class="w"> </span><span class="n">hosts</span><span class="o">:</span>
+<span class="w">    </span><span class="o">-</span><span class="w"> </span><span class="n">KEYCLOAKURL</span>
+<span class="w">    </span><span class="n">secretName</span><span class="o">:</span><span class="w"> </span><span class="n">keycloak</span><span class="o">-</span><span class="n">tls</span><span class="o">-</span><span class="n">cert</span><span class="o">-</span><span class="n">by</span><span class="o">-</span><span class="n">cert</span><span class="o">-</span><span class="n">manager</span>
+</code></pre></div>
+
+<h3 id="apply-the-kubernetes-manifests">Apply the Kubernetes manifests</h3>
+<div class="highlight"><pre><span></span><code>kubectl apply -f keycloak-deployment.yaml -f keycloak-service.yaml -f keycloak-ingress.yaml
+</code></pre></div>
+
+<h1 id="add-url-to-aws-route53">Add URL to AWS Route53</h1>
+<ol>
+<li>
+<p>Add a record name from the host url in Kubernetes ingress</p>
+</li>
+<li>
+<p>Set record type to CNAME</p>
+</li>
+<li>
+<p>Copy the LoadBalancers value from the Kubernetes ingress object and paste it into the Value field</p>
+</li>
+<li>
+<p>Routing policy set to Simple Routing</p>
+</li>
+</ol>
+<h1 id="links">Links</h1>
+<ol>
+<li>
+<p><a href="https://www.keycloak.org/server/configuration">Configuring Keycloak</a></p>
+<p>a)  <a href="https://www.keycloak.org/server/all-config">All configuration</a></p>
+</li>
+<li>
+<p><a href="https://www.keycloak.org/server/db">Configuring the database</a></p>
+</li>
+<li>
+<p><a href="https://www.keycloak.org/server/configuration-production">Configuring Keycloak for production</a></p>
+</li>
+<li>
+<p><a href="https://github.com/keycloak/keycloak/tree/main/quarkus/container">Keycloak Container Image</a></p>
+</li>
+<li>
+<p><a href="https://www.keycloak.org/getting-started/getting-started-kube">Keycloak Kubernetes</a></p>
+</li>
+</ol>
+<h1 id="keycloak-operator">Keycloak Operator</h1>
+<ol>
+<li>
+<p><a href="https://www.keycloak.org/operator/installation">Keycloak Operator Installation</a></p>
+</li>
+<li>
+<p><a href="https://github.com/keycloak/keycloak/tree/main/operator">Keycloak on Quarkus</a></p>
+</li>
+<li>
+<p><a href="https://operatorhub.io/operator/keycloak-operator">Keycloak Operator - OperatorHub.io</a></p>
+</li>
+</ol>
+
+
+             
+ 
+            
+            
+            
+
+
+
+
+
+
+
+            <hr/>
+        </div>
+        <section id="article-sidebar" class="span2">
+            <h4>Published</h4>
+            <time itemprop="dateCreated" datetime="2024-04-17T09:35:00+08:00">Wed 17 April 2024</time>
+            <h4>Category</h4>
+            <a class="category-link" href="/categories.html#authentication-ref">Authentication</a>
+<h4>Contact</h4>
+<div id="sidebar-social-link">
+</div>
+            
+
+
+
+
+
+            
+
+
+
+
+
+        </section>
+</div>
+</article>
+<!-- Root element of PhotoSwipe. Must have class pswp. -->
+<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
+
+    <!-- Background of PhotoSwipe.
+         It's a separate element as animating opacity is faster than rgba(). -->
+    <div class="pswp__bg"></div>
+
+    <!-- Slides wrapper with overflow:hidden. -->
+    <div class="pswp__scroll-wrap">
+
+        <!-- Container that holds slides.
+            PhotoSwipe keeps only 3 of them in the DOM to save memory.
+            Don't modify these 3 pswp__item elements, data is added later on. -->
+        <div class="pswp__container">
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+        </div>
+
+        <!-- Default (PhotoSwipeUI_Default) interface on top of sliding area. Can be changed. -->
+        <div class="pswp__ui pswp__ui--hidden">
+
+            <div class="pswp__top-bar">
+
+                <!--  Controls are self-explanatory. Order can be changed. -->
+
+                <div class="pswp__counter"></div>
+
+                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+
+                <button class="pswp__button pswp__button--share" title="Share"></button>
+
+                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+
+                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
+
+                <!-- Preloader demo https://codepen.io/dimsemenov/pen/yyBWoR -->
+                <!-- element will get class pswp__preloader--active when preloader is running -->
+                <div class="pswp__preloader">
+                    <div class="pswp__preloader__icn">
+                      <div class="pswp__preloader__cut">
+                        <div class="pswp__preloader__donut"></div>
+                      </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
+                <div class="pswp__share-tooltip"></div>
+            </div>
+
+            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+            </button>
+
+            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
+            </button>
+
+            <div class="pswp__caption">
+                <div class="pswp__caption__center"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div>                    </div>
+                    <div class="span1"></div>
+                </div>
+            </div>
+        </div>
+<footer>
+
+
+
+
+    <div id="fpowered">
+        Powered by: <a href="http://getpelican.com/" title="Pelican Home Page" target="_blank" rel="nofollow noopener noreferrer">Pelican</a>
+        Theme: <a href="https://elegant.oncrashreboot.com/" title="Theme Elegant Home Page" target="_blank" rel="nofollow noopener noreferrer">Elegant</a>
+    </div>
+</footer>            <script src="//code.jquery.com/jquery.min.js"></script>
+        <script src="//netdna.bootstrapcdn.com/twitter-bootstrap/2.3.2/js/bootstrap.min.js"></script>
+        <script src="/theme/js/elegant.prod.9e9d5ce754.js"></script>
+        <script>
+            function validateForm(query)
+            {
+                return (query.length > 0);
+            }
+        </script>
+
+    <script>
+    (function () {
+        if (window.location.hash.match(/^#comment-\d+$/)) {
+            $('#comment_thread').collapse('show');
+        }
+    })();
+    window.onhashchange=function(){
+        if (window.location.hash.match(/^#comment-\d+$/))
+            window.location.reload(true);
+    }
+    $('#comment_thread').on('shown', function () {
+        var link = document.getElementById('comment-accordion-toggle');
+        var old_innerHTML = link.innerHTML;
+        $(link).fadeOut(200, function() {
+            $(this).text('Click here to hide comments').fadeIn(200);
+        });
+        $('#comment_thread').on('hidden', function () {
+            $(link).fadeOut(200, function() {
+                $(this).text(old_innerHTML).fadeIn(200);
+            });
+        })
+    })
+</script>
+
+    </body>
+    <!-- Theme: Elegant built for Pelican
+        License : MIT -->
+</html>
